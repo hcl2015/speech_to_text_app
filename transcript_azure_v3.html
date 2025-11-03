@@ -7,12 +7,14 @@
 
     <title>Speech Transcription Tool</title>
     <style>
+     
+
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
-        
+        /* 整體頁面樣式 */
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             line-height: 1.6;
@@ -35,6 +37,8 @@
             z-index: -1;
         }
         
+        
+        /* 主要內容容器 */
         .container {
             max-width: 900px;
             margin: 0 auto;
@@ -46,6 +50,7 @@
             z-index: 1;
         }
         
+        /* 標題樣式 */
         header {
             background: linear-gradient(135deg, #e8c3ab 0%, #633608 100%);
             color: white;
@@ -245,13 +250,15 @@
             justify-content: space-between;
             align-items: center;
         }
-        
+
+        /* 轉文字內容顯示區域 */
         #transcript {
-            height: 300px;
+            height: 450px;
             overflow-y: auto;
             padding: 20px;
             background: white;
             line-height: 1.8;
+            font-size: 32px;
         }
         
         .transcript-footer {
@@ -467,7 +474,7 @@
         </div>
         
         <footer>
-            <p>live Speech Transcription for FGS only &copy; 2023 | Powered by Azure Cognitive Services</p>
+            <p>Live Speech Transcription for FGS only &copy; 2023 | Powered by Azure Cognitive Services</p>
         </footer>
     </div>
 
@@ -660,7 +667,7 @@
                 } else {
                     this.isListening = false;
                     this.updateUI();
-                    this.updateStatus('Transcription stopped', 'stopped');
+                    this.updateStatus('Transcription stopped 轉錄已停止', 'stopped');
                 }
             }
             
@@ -705,12 +712,12 @@
                 this.transcriptElement.innerHTML = '';
                 this.fullTranscript = '';
                 this.updateWordCount();
-                this.updateStatus('Transcript cleared', 'success');
+                this.updateStatus('Transcript cleared 文稿已清除', 'success');
             }
             
             downloadTranscript() {
                 if (!this.fullTranscript.trim()) {
-                    this.updateStatus('No transcript to download', 'error');
+                    this.updateStatus('No transcript to download 沒有可下載的文字稿', 'error');
                     return;
                 }
                 
