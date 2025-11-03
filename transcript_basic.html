@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>即時語音轉文字工具 基礎版</title>
+    <style>
+        /* 整體頁面樣式 */
+        body {
+            font-family: 'Microsoft JhengHei', 'Segoe UI', Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f0f8ff;
+            color: #333;
+        }
+        
+        /* 主要內容容器 */
+        .container {
+            background: white;
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        
+        /* 標題樣式 */
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 28px;
+        }
+        
+        /* 狀態顯示區域 */
+        .status {
+            text-align: center;
+            margin: 15px 0;
+            font-weight: bold;
+            font-size: 18px;
+            padding: 10px;
+            border-radius: 5px;
+            background-color: #f8f9fa;
+        }
+        
+        /* 轉文字內容顯示區域 */
+        #transcript {
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+            height: 400px;
+            overflow-y: auto;
+            margin: 20px 0;
+            background-color: #fafafa;
+            line-height: 1.8;
+            font-size: 20px;
+        }
+        
+        /* 控制按鈕區域 */
+        .controls {
+            text-align: center;
+            margin: 20px 0;
+        }
+        
+        /* 按鈕基本樣式 */
+        button {
+            padding: 12px 24px;
+            font-size: 16px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 0 10px;
+            transition: all 0.3s ease;
+            font-family: 'Microsoft JhengHei', sans-serif;
+        }
+        
+        /* 開始聆聽按鈕 */
+        #startBtn {
+            background-color: #4CAF50;
+            color: white;
+        }
+        
+        #startBtn:hover:not(:disabled) {
+            background-color: #45a049;
+            transform: translateY(-2px);
+        }
+        
+        /* 停止聆聽按鈕 */
+        #stopBtn {
+            background-color: #f44336;
+            color: white;
+        }
+        
+        #stopBtn:hover:not(:disabled) {
+            background-color: #da190b;
+            transform: translateY(-2px);
+        }
+        
+        /* 清除和下載按鈕 */
+        #clearBtn {
+            background-color: #ff9800;
+            color: white;
+        }
+        
+        #downloadBtn {
+            background-color: #2196F3;
+            color: white;
+        }
+        
+        #clearBtn:hover, #downloadBtn:hover {
+            transform: translateY(-2px);
+            opacity: 0.9;
+        }
+        
+        /* 禁用按鈕樣式 */
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+        
+        /* 聆聽中的動畫效果 */
+        .listening {
+            animation: pulse 1.5s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        
+        /* 臨時辨識結果樣式 */
+        .interim {
+            color: #666;
+            font-style: italic;
+            background-color: #ffffcc;
+            padding: 2px 4px;
+            border-radius: 3px;
+        }
+        
+        /* 最終辨識結果樣式 */
+        .final {
+            color: #000;
+            margin-bottom: 10px;
+            padding: 5px;
+            border-left: 3px solid #4CAF50;
+            background-color: #f9f9f9;
+        }
+        
+        /* 語言選擇區域 */
+        .language-selector {
+            text-align: center;
+            margin: 15px 0;
+        }
+        
+        .language-selector select {
+            padding: 8px 15px;
+            font-size: 16px;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+            font-family: 'Microsoft JhengHei', sans-serif;
+        }
+        
+        /* 使用說明區域 */
+        .instructions {
+            background-color: #e7f3ff;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        
+        .instructions h3 {
+            margin-top: 0;
+            color: #1565c0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎤 即時語音轉文字工具</h1>
+        
+        <!-- 狀態顯示 -->
+        <div class="status" id="status">準備開始，請點擊「開始聆聽」</div>
+        
+        <!-- 語言選擇 -->
+        <div class="language-selector">
+            <label for="languageSelect">選擇語言：</label>
+            <select id="languageSelect">
+                <option value="zh-TW">繁體中文</option>
+                <option value="en-US">English</option>
+                <option value="ja-JP">日本語</option>
+                <option value="ko-KR">한국어</option>
+            </select>
+        </div>
+        
+        <!-- 主要控制按鈕 -->
+        <div class="controls">
+            <button id="startBtn">🎤 開始聆聽</button>
+            <button id="stopBtn" disabled>⏹️ 停止聆聽</button>
+        </div>
+        
+        <!-- 轉文字內容顯示區域 -->
+        <div id="transcript"></div>
+        
+        <!-- 輔助功能按鈕 -->
+        <div class="controls">
+            <button id="clearBtn">🗑️ 清除內容</button>
+            <button id="downloadBtn">📥 下載文字稿</button>
+        </div>
+        
+        <!-- 使用說明 -->
+        <div class="instructions">
+            <h3>使用說明：</h3>
+            <ul>
+                <li>點擊「開始聆聽」後，請允許瀏覽器使用麥克風</li>
+                <li>開始說話，您的語音將會即時轉換為文字</li>
+                <li><em>灰色斜體文字</em>表示系統正在辨識中</li>
+                <li><strong>黑色文字</strong>表示已確認的辨識結果</li>
+                <li>點擊「停止聆聽」可暫停語音辨識</li>
+                <li>完成後可下載文字稿保存</li>
+            </ul>
+            <p><strong>建議使用 Chrome 或 Edge 瀏覽器以獲得最佳效果</strong></p>
+        </div>
+    </div>
+
+    <script>
+        // 語音轉文字類別
+        class SpeechTranscriber {
+            constructor() {
+                // 初始化屬性
+                this.recognition = null;           // 語音辨識物件
+                this.isListening = false;          // 是否正在聆聽
+                this.fullTranscript = '';          // 完整的轉文字內容
+                
+                // 取得DOM元素
+                this.transcriptElement = document.getElementById('transcript');
+                this.statusElement = document.getElementById('status');
+                this.startBtn = document.getElementById('startBtn');
+                this.stopBtn = document.getElementById('stopBtn');
+                this.clearBtn = document.getElementById('clearBtn');
+                this.downloadBtn = document.getElementById('downloadBtn');
+                this.languageSelect = document.getElementById('languageSelect');
+                
+                // 初始化語音辨識和事件監聽
+                this.initializeRecognition();
+                this.setupEventListeners();
+            }
+
+            // 初始化語音辨識功能
+            initializeRecognition() {
+                // 檢查瀏覽器是否支援語音辨識
+                const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                
+                if (!SpeechRecognition) {
+                    this.showError('您的瀏覽器不支援語音辨識功能，請使用 Chrome 或 Edge 瀏覽器。');
+                    return;
+                }
+
+                // 建立語音辨識實例
+                this.recognition = new SpeechRecognition();
+                this.recognition.continuous = true;        // 持續聆聽
+                this.recognition.interimResults = true;    // 顯示中間結果
+                this.recognition.lang = this.languageSelect.value; // 設定語言
+
+                // 語音辨識開始時的處理
+                this.recognition.onstart = () => {
+                    this.updateStatus('聆聽中...請開始說話', '#4CAF50');
+                };
+
+                // 收到辨識結果時的處理
+                this.recognition.onresult = (event) => {
+                    let interimTranscript = '';
+                    let finalTranscript = '';
+
+                    // 遍歷所有辨識結果
+                    for (let i = event.resultIndex; i < event.results.length; i++) {
+                        const transcript = event.results[i][0].transcript;
+                        
+                        // 根據是否為最終結果分類
+                        if (event.results[i].isFinal) {
+                            finalTranscript += transcript;
+                        } else {
+                            interimTranscript += transcript;
+                        }
+                    }
+
+                    // 更新顯示內容
+                    this.updateTranscript(finalTranscript, interimTranscript);
+                };
+
+                // 錯誤處理
+                this.recognition.onerror = (event) => {
+                    console.error('語音辨識錯誤:', event.error);
+                    
+                    // 根據錯誤類型顯示對應訊息
+                    if (event.error === 'not-allowed') {
+                        this.showError('麥克風權限被拒絕。請允許瀏覽器使用麥克風。');
+                    } else if (event.error === 'network') {
+                        this.showError('網路錯誤。請檢查您的網路連線。');
+                    } else {
+                        this.showError(`辨識錯誤: ${event.error}`);
+                    }
+                    
+                    this.stopListening();
+                };
+
+                // 辨識結束時的處理
+                this.recognition.onend = () => {
+                    if (this.isListening) {
+                        // 如果應該繼續聆聽，則自動重新開始
+                        this.recognition.start();
+                    } else {
+                        this.updateStatus('已停止聆聽', '#f44336');
+                    }
+                };
+            }
+
+            // 設定事件監聽器
+            setupEventListeners() {
+                this.startBtn.addEventListener('click', () => this.startListening());
+                this.stopBtn.addEventListener('click', () => this.stopListening());
+                this.clearBtn.addEventListener('click', () => this.clearTranscript());
+                this.downloadBtn.addEventListener('click', () => this.downloadTranscript());
+                
+                // 語言變更時重新初始化辨識器
+                this.languageSelect.addEventListener('change', () => {
+                    if (this.recognition) {
+                        this.recognition.lang = this.languageSelect.value;
+                    }
+                });
+            }
+
+            // 開始聆聽
+            startListening() {
+                if (!this.recognition) {
+                    this.showError('語音辨識功能不可用');
+                    return;
+                }
+
+                try {
+                    this.recognition.start();
+                    this.isListening = true;
+                    this.startBtn.disabled = true;
+                    this.stopBtn.disabled = false;
+                    this.startBtn.classList.add('listening');
+                } catch (error) {
+                    console.error('啟動辨識時發生錯誤:', error);
+                }
+            }
+
+            // 停止聆聽
+            stopListening() {
+                if (this.recognition) {
+                    this.recognition.stop();
+                    this.isListening = false;
+                    this.startBtn.disabled = false;
+                    this.stopBtn.disabled = true;
+                    this.startBtn.classList.remove('listening');
+                    this.updateStatus('準備開始，請點擊「開始聆聽」', '#2196F3');
+                }
+            }
+
+            // 更新轉文字內容顯示
+            updateTranscript(final, interim) {
+                // 移除現有的臨時結果
+                const existingInterim = this.transcriptElement.querySelector('.interim');
+                if (existingInterim) {
+                    existingInterim.remove();
+                }
+
+                // 加入最終辨識結果
+                if (final) {
+                    this.fullTranscript += final + ' ';
+                    const finalElement = document.createElement('div');
+                    finalElement.textContent = final;
+                    finalElement.className = 'final';
+                    this.transcriptElement.appendChild(finalElement);
+                }
+
+                // 加入臨時辨識結果
+                if (interim) {
+                    const interimElement = document.createElement('div');
+                    interimElement.textContent = interim;
+                    interimElement.className = 'interim';
+                    this.transcriptElement.appendChild(interimElement);
+                }
+
+                // 自動捲動到最底部
+                this.transcriptElement.scrollTop = this.transcriptElement.scrollHeight;
+            }
+
+            // 清除轉文字內容
+            clearTranscript() {
+                this.transcriptElement.innerHTML = '';
+                this.fullTranscript = '';
+                this.updateStatus('內容已清除', '#ff9800');
+            }
+
+            // 下載文字稿
+            downloadTranscript() {
+                if (!this.fullTranscript.trim()) {
+                    alert('沒有內容可以下載');
+                    return;
+                }
+
+                // 建立下載檔案
+                const blob = new Blob([this.fullTranscript], { type: 'text/plain; charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                
+                // 產生檔名（包含日期）
+                const today = new Date();
+                const dateString = `${today.getFullYear()}${(today.getMonth()+1).toString().padStart(2, '0')}${today.getDate().toString().padStart(2, '0')}`;
+                a.download = `語音轉文字-${dateString}.txt`;
+                
+                // 觸發下載
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }
+
+            // 更新狀態訊息
+            updateStatus(message, color = '#333') {
+                this.statusElement.textContent = message;
+                this.statusElement.style.color = color;
+            }
+
+            // 顯示錯誤訊息
+            showError(message) {
+                this.updateStatus(message, '#f44336');
+                alert(message);
+            }
+        }
+
+        // 當頁面載入完成時初始化語音轉文字功能
+        document.addEventListener('DOMContentLoaded', () => {
+            new SpeechTranscriber();
+        });
+    </script>
+</body>
+</html>
