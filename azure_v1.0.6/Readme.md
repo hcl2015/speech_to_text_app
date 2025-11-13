@@ -1,0 +1,1 @@
+this version is using Microsoft azure speech cognition function and qwen-max model to rewrite the recognized text.
