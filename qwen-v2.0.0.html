@@ -1,0 +1,1005 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="author" content="Claire Lu 盧華超">
+    <title>Speech Transcription Tool 即時語音轉文字工具</title>
+        <!-- enable when independent style.css <link rel="stylesheet" href="styles.css"> -->
+  
+</head>
+
+
+<style>
+
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        /* 整體頁面樣式 */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            min-height: 100vh;
+            padding: 20px;
+             /* Gradient background */
+            background: linear-gradient(135deg, #f3f5f7 0%, #5d7ddd 100%);
+        }
+        
+        /* Overlay to improve text readability */
+        body::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+           /* background: rgba(255, 255, 255, 0.85); */
+            z-index: -1;
+        }
+        
+        /* Login Modal Styles */
+        .login-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(148, 185, 225, 0.399);
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start; /* Adjust to 'flex-start' to move items higher */
+            align-items: center;
+            z-index: 1000;
+            padding-top: 10%; /* Add padding if needed for space above the header */
+        }
+        
+        .login-header {
+            background: linear-gradient(135deg, #e8c3ab 0%, #633608 100%);
+            color: white;
+            padding: 25px 30px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+            width: 90%;
+            max-width: 500px;
+            border-radius: 12px 12px 0 0;
+            margin-bottom: 0; 
+        }
+        
+        .login-header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" preserveAspectRatio="none"><path d="M0,0 L100,0 L100,100 Z" fill="rgba(255,255,255,0.1)"/></svg>');
+            background-size: cover;
+        }
+        
+        .login-header h1 {
+            font-size: 28px;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            position: relative;
+        }
+        
+        .login-header .tagline {
+            font-size: 16px;
+            opacity: 0.9;
+            position: relative;
+        }
+        
+        .login-container {
+            background: rgb(247, 247, 245);
+            padding: 30px;
+            border-radius: 0 0 12px 12px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+            width: 90%;
+            max-width: 500px;
+        }
+        
+        .login-container h2 {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #633608;
+        }
+        
+        .login-form-group {
+            margin-bottom: 15px;
+        }
+        
+        .login-form-group label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 600;
+            color: #5D4037;
+        }
+        
+        .login-form-group input {
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid #d2d0ce;
+            border-radius: 4px;
+            font-size: 16px;
+            transition: border-color 0.2s;
+        }
+        
+        .login-form-group input:focus {
+            outline: none;
+            border-color: #8B4513;
+            box-shadow: 0 0 0 2px rgba(139, 69, 19, 0.2);
+        }
+        
+        .login-btn {
+            width: 100%;
+            padding: 12px;
+            background: #a97531;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-top: 10px;
+        }
+        
+        .login-btn:hover {
+            background: #2d68a0f7;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        .login-error {
+            color: #D32F2F;
+            text-align: center;
+            margin-top: 10px;
+            display: none;
+        }
+        
+        .user-info {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 10px 15px;
+            border-radius: 4px;
+            font-size: 14px;
+            display: none;
+        }
+        
+        /* 主要內容容器 */
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 12px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
+            overflow: hidden;
+            position: relative;
+            z-index: 1;
+            display: none; /* Hidden until login */
+        }
+        
+        /* 標題樣式 */
+        header {
+            background: linear-gradient(135deg, #e8c3ab 0%, #633608 100%);
+            color: white;
+            padding: 25px 30px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" preserveAspectRatio="none"><path d="M0,0 L100,0 L100,100 Z" fill="rgba(255,255,255,0.1)"/></svg>');
+            background-size: cover;
+        }
+        
+        h1 {
+            font-size: 28px;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            position: relative;
+        }
+        
+        .tagline {
+            font-size: 16px;
+            opacity: 0.9;
+            position: relative;
+        }
+        
+        .content {
+            padding: 30px;
+        }
+        
+        .api-config {
+            background: #f8f5f2;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 15px;
+            border: 1px solid #e0d6cc;
+            display: none; /* Hidden as API is now configured in code */
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 600;
+            color: #5D4037;
+        }
+        
+        input, select {
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid #d2d0ce;
+            border-radius: 4px;
+            font-size: 16px;
+            transition: border-color 0.2s;
+        }
+        
+        input:focus, select:focus {
+            outline: none;
+            border-color: #8B4513;
+            box-shadow: 0 0 0 2px rgba(139, 69, 19, 0.2);
+        }
+        
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 15px;
+            padding: 10px;
+            background: #f0f7ff;
+            border-radius: 6px;
+            border: 1px solid #cce5ff;
+        }
+        
+        .checkbox-group input[type="checkbox"] {
+            width: auto;
+        }
+        
+        .custom-model-config {
+            background: #f0f7ff;
+            border: 1px solid #e6eef6;
+            border-radius: 6px;
+            padding: 15px;
+            margin-top: 10px;
+            display: none;
+        }
+        
+        .custom-model-config.active {
+            display: block;
+        }
+        
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 12px 24px;
+            background: #a97531;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .btn:hover {
+            background: #2d68a0f7;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        .btn:active {
+            transform: translateY(0);
+        }
+        
+        .btn:disabled {
+            background: #a19f9d;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .btn-success {
+            background: #388E3C;
+        }
+        
+        .btn-success:hover {
+            background: #2E7D32;
+        }
+        
+        .btn-danger {
+            background: #D32F2F;
+        }
+        
+        .btn-danger:hover {
+            background: #C62828;
+        }
+        
+        .btn-secondary {
+            background: #a97531;
+        }
+        
+        .btn-secondary:hover {
+            background: #4E342E;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 12px;
+            margin: 25px 0;
+            flex-wrap: wrap;
+        }
+        
+        .status {
+            text-align: center;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            font-weight: 600;
+            background: #f3f2f1;
+        }
+        
+        .status-listening {
+            background: #dff6dd;
+            color: #107c10;
+            animation: pulse 1.5s infinite;
+        }
+        
+        .status-rewriting {
+            background: #f3e5f5;
+            color: #7B1FA2;
+            animation: pulse 1.5s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.8; }
+            100% { opacity: 1; }
+        }
+        
+        .transcript-container {
+            border: 1px solid #d2d0ce;
+            border-radius: 8px;
+            overflow: hidden;
+            margin: 25px 0;
+        }
+        
+        .transcript-header {
+            background: #faf9f8;
+            padding: 15px 20px;
+            border-bottom: 1px solid #d2d0ce;
+            font-weight: 600;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        /* 轉文字內容顯示區域 */
+        #transcript {
+            height: 450px;
+            overflow-y: auto;
+            padding: 20px;
+            background: white;
+            line-height: 1.8;
+            font-size: 32px;
+            font-family: "Kaiti TC", "Times New Roman", serif;
+        }
+        
+        .transcript-footer {
+            background: #faf9f8;
+            padding: 15px 20px;
+            border-top: 1px solid #d2d0ce;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        
+        .transcript-actions {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .interim {
+            color: #605e5c;
+            font-style: italic;
+        }
+        
+        .final {
+            color: #323130;
+            margin-bottom: 12px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #f3f2f1;
+        }
+        
+        .rewritten {
+            color: #7B1FA2;
+            margin-bottom: 12px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #f3f2f1;
+            font-weight: bold;
+        }
+        
+        .language-selector {
+            display: flex;
+            gap: 15px;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+        
+        .language-option {
+            flex: 1;
+            min-width: 200px;
+        }
+        
+        .instructions {
+            background: #fff4ce;
+            border-left: 4px solid #ffaa44;
+            padding: 15px 20px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        
+        .instructions h3 {
+            margin-bottom: 10px;
+            color: #8a5000;
+        }
+        
+        .instructions ol {
+            padding-left: 20px;
+        }
+        
+        .instructions li {
+            margin-bottom: 8px;
+        }
+        
+        footer {
+            text-align: center;
+            padding: 20px;
+            color: #605e5c;
+            font-size: 14px;
+            border-top: 1px solid #d2d0ce;
+        }
+        
+        .temple-icon {
+            font-size: 24px;
+        }
+        
+        @media (max-width: 768px) {
+            .controls {
+                flex-direction: column;
+            }
+            
+            .btn {
+                width: 100%;
+            }
+            
+            .language-option {
+                min-width: 100%;
+            }
+            
+            .transcript-footer {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .transcript-actions {
+                width: 100%;
+                justify-content: space-between;
+            }
+            
+            .transcript-actions .btn {
+                flex: 1;
+            }
+            
+            .login-header h1 {
+                font-size: 22px;
+            }
+            
+            .login-header .tagline {
+                font-size: 14px;
+            }
+        }
+
+    </style>
+<body>
+    <div class="login-modal" id="loginModal">
+        <div class="login-header">
+            <h1>Live Speech Transcription Tool<br>即時語音轉文字工具</h1>
+            <p class="tagline">Qwen Version 2.0.0 (For Test Only)<br>千問版V2.0.0(僅供測試使用)</p>
+        </div>
+        <div class="login-container">
+            <h2>User Login<br>用戶登錄</h2>
+            <form id="loginForm">
+                <div class="login-form-group">
+                    <label for="username">Username 用戶名</label>
+                    <input type="text" id="username" name="username" placeholder="請輸入名稱">
+                </div>
+                <div class="login-form-group">
+                    <label for="password">Password 密碼</label>
+                    <input type="password" id="password" name="password" placeholder="請輸入密碼">
+                </div>
+                <button class="login-btn" type="submit">Login 登錄</button>
+                <div class="login-error" id="loginError">Invalid username or password 用戶名或密碼錯誤</div>
+            </form>
+        </div>
+    </div>
+    <!-- User Info Display -->
+    <div class="user-info" id="userInfo">
+        Welcome, <span id="userDisplayName"></span> | <a href="#" id="logoutBtn">Logout 退出</a>
+    </div>
+
+    <!-- Main Application Container -->
+    <div class="container" id="appContainer">
+        <header>
+            <h1><span class="temple-icon">🎤</span> Live Speech Transcription Tool 即時語音轉文字工具</h1>
+            <p class="tagline">Qwen Version 2.0.0 (For Test Only) 千問版V2.0.0(僅供測試使用)</p>
+        </header>
+
+        <main class="content">
+            <section class="language-selector">
+                <div class="language-option">
+                    <label for="languageSelect">Select Language 選擇語言</label>
+                    <select id="languageSelect">
+                        <option value="zh-TW">繁體</option>
+                        <option value="zh-HK">粵語</option>
+                        <option value="zh-CN">简体</option>
+                        <option value="en-US">English (United States)</option>
+                        <option value="ja-JP">日本語</option>
+                        <option value="ko-KR">한국어</option>
+                        <option value="fr-FR">Français (France)</option>
+
+                    </select>
+                </div>
+            </section>
+
+            <section class="controls">
+                <button class="btn btn-success" id="startBtn">🎤 Start Listening 開始聆聽</button>
+                <button class="btn btn-danger" id="stopBtn" disabled>⏹ Stop Listening 停止聆聽</button>
+            </section>
+
+            <div class="status" id="status"> Ready to start transcription 準備開始轉錄</div>
+
+            <section class="transcript-container">
+                <div class="transcript-header">
+                    <span>Transcription content 語音轉寫內容 (Qwen Enhanced)</span>
+                    <span id="transcriptWordCount">Words count 0 目前 0 字</span>
+                </div>
+                <div id="transcript"></div>
+                <div class="transcript-footer">
+                    <div class="transcript-actions">
+                        <button class="btn btn-secondary" id="clearBtn">🗑 Clear Transcript 清除內容</button>
+                        <button class="btn btn-success" id="downloadBtn">📥 Download Transcript 下載文字稿</button>
+                    </div>
+                    <span id="lastUpdated">Last updated: Not started yet 最後更新：尚未開始</span>
+                </div>
+            </section>
+
+            <section class="instructions">
+                <h3>Instructions 使用說明</h3>
+                <ol>
+                    <li>After logging in, select the language you want to recognize, then click "Start Listening."
+                        <br>登入後選擇想辨識的語言，再點擊「開始聆聽」。</li>
+                    <li>Your browser will request microphone permissions; please choose to allow recording.
+                        <br>瀏覽器會請求麥克風權限，請選擇允許開始錄音。</li>
+                    <li>Gray italic text indicates temporary results, while purple text denotes AI-enhanced results.
+                        <br>灰色斜體文字為暫存結果，紫色文字為AI優化後結果。</li>
+                    <li>All speech recognition results are automatically enhanced with AI for Buddhist terminology and grammar correction.
+                        <br>所有語音辨識結果都會自動使用AI進行佛教術語和語法優化。</li>
+                    <li>If you need to pause, click "Stop Listening," and the system will automatically save the content.
+                        <br>若需要暫停，請點擊「停止聆聽」，系統會自動保存內容。</li>
+                    <li>You can clear the content or download the transcription file at any time.
+                        <br>隨時可以清除畫面內容或下載轉寫文字檔。</li>
+                    <li>It is recommended to use Chrome or Edge for the best experience.
+                        <br>建議使用 Chrome 或 Edge 以獲得最佳體驗。</li>
+                </ol>
+            </section>
+        </main>
+
+        <footer>
+            <small>For Test Only • 本範例僅供測試使用</small>
+        </footer>
+    </div>
+
+    <script>
+        // Configuration for Qwen API
+        const CONFIG = {
+            QWEN_API_KEY: 'kkkkkkk', // Replace with your actual API key
+            QWEN_API_URL: 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions'
+        };
+
+        class SpeechTranscriber {
+            constructor() {
+                this.recognition = null;
+                this.isListening = false;
+                this.fullTranscript = '';
+                this.transcriptElement = document.getElementById('transcript');
+                this.statusElement = document.getElementById('status');
+                this.startBtn = document.getElementById('startBtn');
+                this.stopBtn = document.getElementById('stopBtn');
+                this.clearBtn = document.getElementById('clearBtn');
+                this.downloadBtn = document.getElementById('downloadBtn');
+                this.languageSelect = document.getElementById('languageSelect');
+                this.wordCountElement = document.getElementById('transcriptWordCount');
+                this.lastUpdatedElement = document.getElementById('lastUpdated');
+                
+                // Qwen API Configuration - OpenAI Compatible
+                this.qwenConfig = {
+                    apiKey: CONFIG.QWEN_API_KEY,
+                    apiUrl: CONFIG.QWEN_API_URL,
+                    model: 'qwen-max'
+                };
+                
+                // Relevant Buddhist phrases for context
+                this.relevantPhrases = '南無,阿彌陀佛,釋迦牟尼,觀世音,佛,法,僧,願力,輪回,涅槃,四聖諦,八正道,業,因果,慈悲,智慧,菩提,菩薩,戒,戒定慧,淨土,真理,信心,修行,禪,冥想,心經,禪定,法門,隨喜,願力,空性,無我,具足,如來,阿賴耶識,六道,地藏,大乘,小乘,信仰,供養,回向,福報,善行,福德,受報,清淨,無量壽,法界,般若,波羅蜜,金剛,金剛經,法華經,華嚴經,楞嚴經,維摩詰經,大悲咒,心經';
+                // Queue for processing transcriptions
+                this.processingQueue = [];
+                this.isProcessing = false;
+                
+                this.initializeRecognition();
+                this.setupEventListeners();
+            }
+
+            initializeRecognition() {
+                const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+                if (!SpeechRecognition) {
+                    this.showError('Your browser does not support speech recognition. Please use Chrome or Edge.\n您的瀏覽器不支援語音辨識功能，請使用 Chrome 或 Edge 瀏覽器。');
+                    return;
+                }
+
+                this.recognition = new SpeechRecognition();
+                this.recognition.continuous = true;
+                this.recognition.interimResults = true;
+                this.recognition.lang = this.languageSelect.value;
+
+                this.recognition.onstart = () => {
+                    this.updateStatus('Listening... please start speaking.聆聽中，請開始說話…', '#107c10', true);
+                };
+
+                this.recognition.onresult = (event) => {
+                    let interimTranscript = '';
+                    let finalTranscript = '';
+
+                    for (let i = event.resultIndex; i < event.results.length; i++) {
+                        const transcript = event.results[i][0].transcript;
+                        if (event.results[i].isFinal) {
+                            finalTranscript += transcript;
+                        } else {
+                            interimTranscript += transcript;
+                        }
+                    }
+
+                    this.updateTranscript(finalTranscript, interimTranscript);
+                };
+
+                this.recognition.onerror = (event) => {
+                    console.error('Speech recognition error\n語音辨識錯誤:', event.error);
+                    if (event.error === 'not-allowed') {
+                        this.showError('Microphone permission denied. Please allow the browser to use the microphone. 麥克風權限被拒絕。請允許瀏覽器使用麥克風。');
+                    } else if (event.error === 'network') {
+                        this.showError('Network error. Please check your network connection. 網路錯誤。請檢查您的網路連線。');
+                    } else {
+                        this.showError(`Recognition error 辨識錯誤：${event.error}`);
+                    }
+                    this.stopListening();
+                };
+
+                this.recognition.onend = () => {
+                    if (this.isListening) {
+                        this.recognition.start();
+                    } else {
+                        this.updateStatus(`Listening has been stopped. To continue, please click 'Start Listening' again.已停止聆聽，若要繼續請再次點擊「開始聆聽」`, '#333', false);
+                    }
+                };
+            }
+
+            setupEventListeners() {
+                this.startBtn.addEventListener('click', () => this.startListening());
+                this.stopBtn.addEventListener('click', () => this.stopListening());
+                this.clearBtn.addEventListener('click', () => this.clearTranscript());
+                this.downloadBtn.addEventListener('click', () => this.downloadTranscript());
+
+                this.languageSelect.addEventListener('change', () => {
+                    if (this.recognition) {
+                        this.recognition.lang = this.languageSelect.value;
+                        this.updateStatus(`The recognition language has been switched to 已切換辨識語言為：${this.languageSelect.selectedOptions[0].textContent}`, '#633608', false);
+                    }
+                });
+            }
+
+            startListening() {
+                if (!this.recognition) {
+                    this.showError('Speech recognition feature is unavailabl 語音辨識功能不可用');
+                    return;
+                }
+
+                try {
+                    this.recognition.start();
+                    this.isListening = true;
+                    this.startBtn.disabled = true;
+                    this.stopBtn.disabled = false;
+                } catch (error) {
+                    console.error('An error occurred while starting recognition:', error);
+                }
+            }
+
+            stopListening() {
+                if (this.recognition && this.isListening) {
+                    this.recognition.stop();
+                }
+                this.isListening = false;
+                this.startBtn.disabled = false;
+                this.stopBtn.disabled = true;
+                this.updateStatus("Ready to start, please click 'Start Listening' 準備開始，請點擊「開始聆聽」", '#333', false);
+            }
+
+            async updateTranscript(final, interim) {
+                const existingInterim = this.transcriptElement.querySelector('.interim');
+                if (existingInterim) {
+                    existingInterim.remove();
+                }
+
+                if (final) {
+                    // Add to processing queue for AI enhancement
+                    this.processingQueue.push(final);
+                    this.processQueue();
+                }
+
+                if (interim) {
+                    const interimElement = document.createElement('div');
+                    interimElement.textContent = interim;
+                    interimElement.className = 'interim';
+                    this.transcriptElement.appendChild(interimElement);
+                }
+
+                this.transcriptElement.scrollTop = this.transcriptElement.scrollHeight;
+            }
+
+            async processQueue() {
+                if (this.isProcessing || this.processingQueue.length === 0) {
+                    return;
+                }
+
+                this.isProcessing = true;
+
+                while (this.processingQueue.length > 0) {
+                    const text = this.processingQueue.shift();
+                    
+                    try {
+                        // Show original text temporarily
+                        const originalElement = document.createElement('div');
+                        originalElement.textContent = `[Origin] ${text}`;
+                        originalElement.className = 'final';
+                        originalElement.style.color = '#888';
+                        originalElement.style.fontSize = '24px';
+                        this.transcriptElement.appendChild(originalElement);
+
+                        // Process with AI
+                        const rewrittenText = await this.rewriteContent(text);
+                        
+                        // Add rewritten text
+                        const rewrittenElement = document.createElement('div');
+                        rewrittenElement.textContent = `[Rewrite] ${rewrittenText}`;
+                        rewrittenElement.className = 'rewritten';
+                        this.transcriptElement.appendChild(rewrittenElement);
+                        
+                        // Update full transcript with rewritten version
+                        this.fullTranscript += rewrittenText + ' ';
+                        this.updateWordCount();
+                        this.lastUpdatedElement.textContent = `Last updated: ${new Date().toLocaleTimeString()}`;
+                        
+                    } catch (error) {
+                        console.error('Error processing text:', error);
+                        // If AI fails, use original text
+                        const fallbackElement = document.createElement('div');
+                        fallbackElement.textContent = text;
+                        fallbackElement.className = 'final';
+                        this.transcriptElement.appendChild(fallbackElement);
+                        this.fullTranscript += text + ' ';
+                        this.updateWordCount();
+                    }
+
+                    this.transcriptElement.scrollTop = this.transcriptElement.scrollHeight;
+                }
+
+                this.isProcessing = false;
+            }
+
+            updateWordCount() {
+                const count = this.fullTranscript.trim()
+                    ? this.fullTranscript.trim().split(/\s+/).filter(Boolean).length
+                    : 0;
+                this.wordCountElement.textContent = `Now ${count} words 目前 ${count} 字`;
+            }
+
+            clearTranscript() {
+                this.transcriptElement.innerHTML = '';
+                this.fullTranscript = '';
+                this.processingQueue = [];
+                this.updateStatus("Content has been cleared. Please click 'Start Listening' to restart. 內容已清除，請點擊「開始聆聽」重新開始", '#a97531', false);
+                this.wordCountElement.textContent = 'Now 0 Word 目前 0 字';
+                this.lastUpdatedElement.textContent = 'Last updated: Not started yet 最後更新：尚未開始';
+            }
+
+            downloadTranscript() {
+                if (!this.fullTranscript.trim()) {
+                    alert('No content available for download 沒有內容可以下載');
+                    return;
+                }
+
+                const blob = new Blob([this.fullTranscript.trim()], { type: 'text/plain; charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                const today = new Date();
+                const dateString = `${today.getFullYear()}${(today.getMonth() + 1).toString().padStart(2, '0')}${today.getDate().toString().padStart(2, '0')}`;
+                a.download = `Speech-to-text-${dateString}.txt`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                this.updateStatus('Transcription has been downloaded successfully 文字稿已下載完成', '#107c10', false);
+            }
+
+            async rewriteContent(inputText) {
+                if (!inputText.trim()) return inputText;
+                
+                // If API key is not configured, return original text
+                if (!this.qwenConfig.apiKey || this.qwenConfig.apiKey === 'your-api-key-here') {
+                    return inputText;
+                }
+                
+                const systemPrompt = `你是一个佛经文本编辑助手。按照以下规则重写中文句子：
+                1.不要回答任何问题
+                2.修正语法错误
+                3.使用以下参考资料修正佛教术语: ${this.relevantPhrases}
+                4.保持原意和语气
+                5.只做微小调整
+                6.不要添加新内容
+                示例:
+                    用户输入: 拉摩本是釋迦牟尼佛
+                    响应: 南無本師釋迦牟尼佛
+                    用户输入: 波熱波囉密多心經講的是空性的道理   
+                    响应: 般若波羅蜜多心經詮釋空性深義`;
+                
+                // OpenAI-compatible payload
+                const payload = {
+                    "model": this.qwenConfig.model,
+                    "messages": [
+                        {"role": "system", "content": systemPrompt},
+                        {"role": "user", "content": inputText}
+                    ],
+                    "temperature": 0.1,
+                    "max_tokens": 2000
+                };
+                
+                try {
+                    console.log('Calling Qwen API with payload:', payload);
+                    
+                    const response = await fetch(this.qwenConfig.apiUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${this.qwenConfig.apiKey}`,
+                            'X-DashScope-SSE': 'disable'
+                        },
+                        body: JSON.stringify(payload)
+                    });
+                    
+                    console.log('Qwen API response status:', response.status);
+                    
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        console.error('Qwen API error response:', errorText);
+                        throw new Error(`HTTP error! status: ${response.status}, details: ${errorText}`);
+                    }
+                    
+                    const result = await response.json();
+                    console.log('Qwen API success response:', result);
+                    
+                    // Extract response content from OpenAI-compatible response
+                    if (result.choices && result.choices.length > 0 && result.choices[0].message) {
+                        return result.choices[0].message.content;
+                    } else {
+                        console.log('Unexpected API response format:', result);
+                        return 'err' + inputText; // Return original text if response format is unexpected
+                    }
+                    
+                } catch (error) {
+                    console.error('Error occurred while calling Qwen API:', error);
+                    return 'err' + inputText; // Return original text on error
+                }
+            }
+
+            updateStatus(message, color = '#333', isListening = false) {
+                this.statusElement.textContent = message;
+                this.statusElement.style.color = color;
+                this.statusElement.classList.toggle('status-listening', isListening);
+            }
+
+            showError(message) {
+                this.updateStatus(message, '#d32f2f', false);
+                alert(message);
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const loginModal = document.getElementById('loginModal');
+            const appContainer = document.getElementById('appContainer');
+            const userInfo = document.getElementById('userInfo');
+            const loginForm = document.getElementById('loginForm');
+            const loginError = document.getElementById('loginError');
+            let transcriber = null;
+
+            const credentialStore = [
+                { username: 'admin', password: 'admin123', displayName: 'Admin管理員' },
+                { username: 'fgs', password: 'fgs2025', displayName: 'fgs佛光用戶' },
+                { username: 'test', password: 'test2025', displayName: 'Test User測試用戶' }
+            ];
+
+            loginForm.addEventListener('submit', (event) => {
+                event.preventDefault();
+                const username = loginForm.username.value.trim();
+                const password = loginForm.password.value;
+
+                if (!username || !password) {
+                    loginError.textContent = "Please enter both your username and password.\n請輸入使用者名稱與密碼。";
+                    loginError.style.display = 'block';
+                    return;
+                }
+
+                const authenticatedUser = credentialStore.find(
+                    (user) => user.username === username && user.password === password
+                );
+
+                if (!authenticatedUser) {
+                    loginError.textContent = 'Incorrect username or password. Please try again.\n帳號或密碼錯誤，請再試一次。';
+                    loginError.style.display = 'block';
+                    return;
+                }
+
+                loginError.style.display = 'none';
+                loginModal.style.display = 'none';
+                appContainer.style.display = 'block';
+                userInfo.textContent = `user: ${authenticatedUser.displayName}`;
+                userInfo.style.display = 'block';
+
+                loginForm.reset();
+
+                if (!transcriber) {
+                    transcriber = new SpeechTranscriber();
+                }
+            });
+        });
+    </script>
+</body>
+</html>
