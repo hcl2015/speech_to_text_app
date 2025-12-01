@@ -336,64 +336,38 @@ class MicrosoftSpeechTranscriber {
     async rewriteContent(inputText) {
         if (!inputText.trim()) return inputText;
         
-        const systemPrompt = `你是一个佛经文本编辑助手。請將輸入語言翻譯為繁體中文，並按照以下规则重写句子：
-        1.不要回答任何问题
-        2.修正语法错误
-        3.使用以下参考资料修正佛教术语: ${this.relevantPhrases}
-        4.保持原意和语气
-        5.不要添加新内容
-        示例:
-            用户输入: 眾生潔舉佛性但要修解定慧才能顯明
-            响应: 眾生皆具佛性，但需修行戒定慧方能顯發
-            用户输入: 拿摩本師釋迦牟尼佛
-            响应: 南無本師釋迦牟尼佛
-            用户输入: 波熱波囉密多心經講的是空性的道理   
-            响应: 般若波羅蜜多心經詮釋空性深義
-            用户输入: 般若波罗密多心经   
-            响应: 般若波羅蜜多心經`;
-        
-        const payload = {
-            model: this.qwenConfig.model,
-            messages: [
-                { role: 'system', content: systemPrompt },
-                { role: 'user', content: inputText }
-            ],
-            temperature: 0.1,
-            max_tokens: 1000
-        };
-        
         try {
-            console.log('Calling Qwen API with payload:', payload);
-            
-            const response = await fetch(this.qwenConfig.apiUrl, {
+            // Call backend rewrite API instead of Qwen directly from browser
+            const response = await fetch('/api/rewrite-text', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${this.qwenConfig.apiKey}`,
-                    'X-DashScope-SSE': 'disable'
+                    'Content-Type': 'application/json'
                 },
-                body: JSON.stringify(payload)
+                body: JSON.stringify({
+                    text: inputText,
+                    relevantPhrases: this.relevantPhrases
+                })
             });
             
-            console.log('Qwen API response status:', response.status);
+            console.log('Rewrite API response status:', response.status);
             
             if (!response.ok) {
                 const errorText = await response.text();
-                console.error('Qwen API error response:', errorText);
+                console.error('Rewrite API error response:', errorText);
                 throw new Error(`HTTP error! status: ${response.status}, details: ${errorText}`);
             }
             
             const result = await response.json();
-            console.log('Qwen API success response:', result);
-            
-            if (result.choices && result.choices.length > 0 && result.choices[0].message) {
-                return result.choices[0].message.content;
-            } else {
-                console.log('Unexpected API response format:', result);
-                return inputText;
+            console.log('Rewrite API success response:', result);
+
+            if (result && typeof result.rewrittenText === 'string') {
+                return result.rewrittenText;
             }
+
+            console.log('Unexpected rewrite API response format:', result);
+            return inputText;
         } catch (error) {
-            console.error('Error occurred while calling Qwen API:', error);
+            console.error('Error occurred while calling rewrite API:', error);
             this.updateStatus('Text rewriting service error. Using original text instead.', 'error');
             return inputText;
         }
