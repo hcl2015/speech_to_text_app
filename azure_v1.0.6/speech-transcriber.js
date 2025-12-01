@@ -53,9 +53,9 @@ class MicrosoftSpeechTranscriber {
             console.log('Azure Static Web Apps environment detected');
             const env = window.__AZURE_STATIC_WEB_APPS_ENV__;
             
-            this.azureConfig.subscriptionKey = env.SPEECH_SUBSCRIPTION_KEY || env.AZURE_SUBSCRIPTION_KEY || "";
-            this.azureConfig.serviceRegion = env.SPEECH_SERVICE_REGION || env.AZURE_SERVICE_REGION || "eastus";
-            this.azureConfig.customEndpointId = env.CUSTOM_ENDPOINT_ID || env.AZURE_CUSTOM_ENDPOINT_ID || "";
+            this.azureConfig.subscriptionKey = env.AZURE_SUBSCRIPTION_KEY || "";
+            this.azureConfig.serviceRegion = env.AZURE_SERVICE_REGION || "eastus";
+            this.azureConfig.customEndpointId =  env.AZURE_CUSTOM_ENDPOINT_ID || "";
             
             this.qwenConfig.apiKey = env.QWEN_API_KEY || "";
             this.qwenConfig.apiUrl = env.QWEN_API_URL || this.qwenConfig.apiUrl;
@@ -137,8 +137,8 @@ class MicrosoftSpeechTranscriber {
             console.warn('⚠️ No Azure Speech configuration found. Speech recognition will not work.');
             console.info('Please set environment variables in Azure Static Web App Configuration.');
             console.info('Required variables:');
-            console.info('- SPEECH_SUBSCRIPTION_KEY');
-            console.info('- SPEECH_SERVICE_REGION (e.g., eastus)');
+            console.info('- AZURE_SUBSCRIPTION_KEY');
+            console.info('- AZURE_SERVICE_REGION (e.g., eastus)');
             console.info('- QWEN_API_KEY (optional, for text rewriting)');
         }
     }
