@@ -1,5 +1,3 @@
-// add keys
-// change the file name to config.js
 const CONFIG = {
     AZURE_SUBSCRIPTION_KEY: 'xx',
     AZURE_SERVICE_REGION: 'eastus2',

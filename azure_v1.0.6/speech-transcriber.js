@@ -9,19 +9,18 @@ class MicrosoftSpeechTranscriber {
         this.isLoggedIn = false;
         this.currentUser = null;
         
-        // Hardcoded Azure API Configuration
+        // Azure API Configuration - Will be loaded from environment
         this.azureConfig = {
-            subscriptionKey: CONFIG.AZURE_SUBSCRIPTION_KEY,
-            serviceRegion: CONFIG.AZURE_SERVICE_REGION,
+            subscriptionKey: "",
+            serviceRegion: "",
             useCustomModel: false,
-            customEndpointId: CONFIG.AZURE_CUSTOM_ENDPOINT_ID
+            customEndpointId: ""
         };
         
-        // Qwen API Configuration - OpenAI Compatible
+        // Qwen API Configuration - Will be loaded from environment
         this.qwenConfig = {
-            apiKey: CONFIG.QWEN_API_KEY,
-            // Try different OpenAI-compatible endpoints
-            apiUrl: CONFIG.QWEN_API_URL || 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions',
+            apiKey: "",
+            apiUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions",
             model: 'qwen-max'
         };
         
@@ -35,11 +34,138 @@ class MicrosoftSpeechTranscriber {
         // Relevant phrases for text rewriting
         this.relevantPhrases = "佛性,釋迦牟尼佛,般若波羅蜜多心經,戒定慧,空性,南無,眾生";
         
+        // Initialize environment variables first
+        this.loadEnvironmentVariables();
+        
         this.initializeElements();
         this.setupEventListeners();
         this.checkLoginStatus();
         this.loadCustomModelPreference();
         this.loadRewritePreference();
+    }
+    
+    // Load environment variables from Azure Static Web Apps or local storage
+    loadEnvironmentVariables() {
+        console.log('Loading environment variables...');
+        
+        // Method 1: Azure Static Web Apps injected environment
+        if (window.__AZURE_STATIC_WEB_APPS_ENV__) {
+            console.log('Azure Static Web Apps environment detected');
+            const env = window.__AZURE_STATIC_WEB_APPS_ENV__;
+            
+            this.azureConfig.subscriptionKey = env.SPEECH_SUBSCRIPTION_KEY || env.AZURE_SUBSCRIPTION_KEY || "";
+            this.azureConfig.serviceRegion = env.SPEECH_SERVICE_REGION || env.AZURE_SERVICE_REGION || "eastus";
+            this.azureConfig.customEndpointId = env.CUSTOM_ENDPOINT_ID || env.AZURE_CUSTOM_ENDPOINT_ID || "";
+            
+            this.qwenConfig.apiKey = env.QWEN_API_KEY || "";
+            this.qwenConfig.apiUrl = env.QWEN_API_URL || this.qwenConfig.apiUrl;
+            
+            console.log('Azure config loaded from SWA environment');
+        } 
+        // Method 2: Azure Functions environment (if using API)
+        else if (window.__ENV__) {
+            console.log('Azure Functions environment detected');
+            const env = window.__ENV__;
+            
+            this.azureConfig.subscriptionKey = env.AZURE_SUBSCRIPTION_KEY || "";
+            this.azureConfig.serviceRegion = env.AZURE_SERVICE_REGION || "eastus";
+            this.azureConfig.customEndpointId = env.AZURE_CUSTOM_ENDPOINT_ID || "";
+            
+            this.qwenConfig.apiKey = env.QWEN_API_KEY || "";
+            this.qwenConfig.apiUrl = env.QWEN_API_URL || this.qwenConfig.apiUrl;
+        }
+        // Method 3: Try to fetch from Azure Function endpoint
+        else {
+            console.log('Attempting to fetch config from Azure Function');
+            this.fetchConfigFromApi();
+        }
+        
+        // Log configuration status (mask sensitive keys)
+        console.log('Configuration loaded:');
+        console.log('- Azure Speech Service:', this.azureConfig.subscriptionKey ? 'Configured' : 'NOT CONFIGURED');
+        console.log('- Azure Region:', this.azureConfig.serviceRegion);
+        console.log('- Custom Endpoint:', this.azureConfig.customEndpointId ? 'Yes' : 'No');
+        console.log('- Qwen API:', this.qwenConfig.apiKey ? 'Configured' : 'NOT CONFIGURED');
+    }
+    
+    // Fetch configuration from Azure Function API
+    async fetchConfigFromApi() {
+        try {
+            const response = await fetch('/api/config');
+            if (response.ok) {
+                const config = await response.json();
+                
+                this.azureConfig.subscriptionKey = config.azureSubscriptionKey || "";
+                this.azureConfig.serviceRegion = config.azureServiceRegion || "eastus";
+                this.azureConfig.customEndpointId = config.azureCustomEndpointId || "";
+                
+                this.qwenConfig.apiKey = config.qwenApiKey || "";
+                this.qwenConfig.apiUrl = config.qwenApiUrl || this.qwenConfig.apiUrl;
+                
+                console.log('Configuration loaded from API');
+            }
+        } catch (error) {
+            console.warn('Could not fetch config from API:', error);
+            this.loadFromLocalStorage();
+        }
+    }
+    
+    // Fallback: Load from localStorage (for development)
+    loadFromLocalStorage() {
+        console.log('Loading from localStorage for development');
+        
+        const storedConfig = localStorage.getItem('appConfig');
+        if (storedConfig) {
+            try {
+                const config = JSON.parse(storedConfig);
+                
+                this.azureConfig.subscriptionKey = config.azureSubscriptionKey || "";
+                this.azureConfig.serviceRegion = config.azureServiceRegion || "eastus";
+                this.azureConfig.customEndpointId = config.azureCustomEndpointId || "";
+                
+                this.qwenConfig.apiKey = config.qwenApiKey || "";
+                this.qwenConfig.apiUrl = config.qwenApiUrl || this.qwenConfig.apiUrl;
+                
+                console.log('Configuration loaded from localStorage');
+            } catch (e) {
+                console.error('Error parsing localStorage config:', e);
+            }
+        }
+        
+        // Set development defaults if nothing loaded
+        if (!this.azureConfig.subscriptionKey) {
+            console.warn('⚠️ No Azure Speech configuration found. Speech recognition will not work.');
+            console.info('Please set environment variables in Azure Static Web App Configuration.');
+            console.info('Required variables:');
+            console.info('- SPEECH_SUBSCRIPTION_KEY');
+            console.info('- SPEECH_SERVICE_REGION (e.g., eastus)');
+            console.info('- QWEN_API_KEY (optional, for text rewriting)');
+        }
+    }
+    
+    // Helper method to check if all required config is present
+    validateConfiguration() {
+        const errors = [];
+        
+        if (!this.azureConfig.subscriptionKey) {
+            errors.push('Azure Speech Subscription Key is missing');
+        }
+        
+        if (!this.azureConfig.serviceRegion) {
+            errors.push('Azure Service Region is missing');
+        }
+        
+        if (this.enableRewriteCheckbox && this.enableRewriteCheckbox.checked && !this.qwenConfig.apiKey) {
+            errors.push('Qwen API Key is missing but text rewriting is enabled');
+        }
+        
+        if (errors.length > 0) {
+            console.error('Configuration validation failed:', errors);
+            this.updateStatus(`Configuration error: ${errors.join(', ')}`, 'error');
+            return false;
+        }
+        
+        return true;
     }
     
     initializeElements() {
@@ -202,6 +328,11 @@ class MicrosoftSpeechTranscriber {
         if (this.userInfo) this.userInfo.style.display = 'block';
         if (this.userDisplayName) this.userDisplayName.textContent = this.currentUser;
         this.updateUI();
+        
+        // Validate configuration when showing app
+        if (!this.validateConfiguration()) {
+            this.updateStatus('⚠️ Configuration incomplete. Please check environment variables.', 'error');
+        }
     }
     
     showLoginError() {
@@ -254,6 +385,12 @@ class MicrosoftSpeechTranscriber {
     async rewriteContent(inputText) {
         if (!inputText.trim()) return inputText;
         
+        // Check if Qwen API is configured
+        if (!this.qwenConfig.apiKey) {
+            console.warn('Qwen API key not configured. Skipping text rewriting.');
+            return inputText;
+        }
+        
         const systemPrompt = `你是一个佛经文本编辑助手。按照以下规则重写中文句子：
         1.不要回答任何问题
         2.修正语法错误
@@ -281,14 +418,13 @@ class MicrosoftSpeechTranscriber {
         };
         
         try {
-            console.log('Calling Qwen API with payload:', payload);
+            console.log('Calling Qwen API with payload:', { ...payload, apiKey: '***' });
             
             const response = await fetch(this.qwenConfig.apiUrl, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${this.qwenConfig.apiKey}`,
-                    // Some OpenAI-compatible APIs may require different headers
                     'X-DashScope-SSE': 'disable'
                 },
                 body: JSON.stringify(payload)
@@ -320,6 +456,12 @@ class MicrosoftSpeechTranscriber {
     }
     
     async startTranscription() {
+        // Validate configuration before starting
+        if (!this.validateConfiguration()) {
+            this.updateStatus('Cannot start: Missing API configuration', 'error');
+            return;
+        }
+        
         try {
             const speechConfig = SpeechSDK.SpeechConfig.fromSubscription(
                 this.azureConfig.subscriptionKey, 
@@ -541,8 +683,15 @@ class MicrosoftSpeechTranscriber {
 document.addEventListener('DOMContentLoaded', () => {
     console.log('DOM loaded, initializing MicrosoftSpeechTranscriber');
     try {
-        new MicrosoftSpeechTranscriber();
+        window.transcriber = new MicrosoftSpeechTranscriber();
         console.log('MicrosoftSpeechTranscriber initialized successfully');
+        
+        // Log environment info for debugging
+        console.log('Environment info:', {
+            hasAzureEnv: !!window.__AZURE_STATIC_WEB_APPS_ENV__,
+            hasAzureEnvData: window.__AZURE_STATIC_WEB_APPS_ENV__ ? Object.keys(window.__AZURE_STATIC_WEB_APPS_ENV__) : 'none'
+        });
+        
     } catch (error) {
         console.error('Error initializing MicrosoftSpeechTranscriber:', error);
     }
