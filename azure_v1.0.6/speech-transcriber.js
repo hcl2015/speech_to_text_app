@@ -8,20 +8,21 @@ class MicrosoftSpeechTranscriber {
         this.isListening = false;
         this.isLoggedIn = false;
         this.currentUser = null;
+        this.configLoaded = false;
         
-        // Azure API Configuration (front-end uses subscription key directly)
+        // Azure API Configuration (will be loaded from backend API)
         this.azureConfig = {
-            subscriptionKey: CONFIG.AZURE_SUBSCRIPTION_KEY,
-            serviceRegion: CONFIG.AZURE_SERVICE_REGION,
+            subscriptionKey: '',
+            serviceRegion: '',
             useCustomModel: false,
-            customEndpointId: CONFIG.AZURE_CUSTOM_ENDPOINT_ID
+            customEndpointId: ''
         };
         this.savedUseCustomModel = false;
         
-        // Qwen API Configuration - OpenAI Compatible
+        // Qwen API Configuration - OpenAI Compatible (will be loaded from backend API)
         this.qwenConfig = {
-            apiKey: CONFIG.QWEN_API_KEY,
-            apiUrl: CONFIG.QWEN_API_URL || 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions',
+            apiKey: '',
+            apiUrl: '',
             model: 'qwen-max'
         };
         
@@ -41,6 +42,7 @@ class MicrosoftSpeechTranscriber {
         this.loadCustomModelPreference();
         this.loadRewritePreference();
         this.updateCustomModelAvailability(true);
+        this.loadApiConfiguration();
     }
     
     initializeElements() {
@@ -300,6 +302,36 @@ class MicrosoftSpeechTranscriber {
         this.relevantPhrases = this.relevantPhrasesInput.value;
         localStorage.setItem('relevantPhrases', this.relevantPhrases);
     }
+
+    async loadApiConfiguration() {
+        try {
+            const response = await fetch('/api/config');
+            if (!response.ok) {
+                console.error('Failed to load API configuration:', await response.text());
+                this.updateStatus('Failed to load API configuration from server.', 'error');
+                return;
+            }
+
+            const config = await response.json();
+            console.log('Loaded API configuration from backend:', config);
+
+            this.azureConfig.subscriptionKey = config.azureSubscriptionKey || '';
+            this.azureConfig.serviceRegion = config.azureServiceRegion || 'eastus';
+            this.azureConfig.customEndpointId = config.azureCustomEndpointId || '';
+
+            this.qwenConfig.apiKey = config.qwenApiKey || '';
+            this.qwenConfig.apiUrl = config.qwenApiUrl ||
+                'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions';
+
+            this.configLoaded = !!(this.azureConfig.subscriptionKey && this.azureConfig.serviceRegion);
+            if (!this.configLoaded) {
+                this.updateStatus('Speech API configuration is incomplete. Please contact the administrator.', 'error');
+            }
+        } catch (error) {
+            console.error('Error loading API configuration:', error);
+            this.updateStatus('Error loading API configuration from server.', 'error');
+        }
+    }
     
     async rewriteContent(inputText) {
         if (!inputText.trim()) return inputText;
@@ -369,6 +401,10 @@ class MicrosoftSpeechTranscriber {
     
     async startTranscription() {
         try {
+            if (!this.configLoaded) {
+                this.updateStatus('Configuration not loaded. Please wait and try again.', 'error');
+                return;
+            }
             const speechConfig = SpeechSDK.SpeechConfig.fromSubscription(
                 this.azureConfig.subscriptionKey, 
                 this.azureConfig.serviceRegion
