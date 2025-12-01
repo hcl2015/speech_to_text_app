@@ -9,19 +9,16 @@ class MicrosoftSpeechTranscriber {
         this.isLoggedIn = false;
         this.currentUser = null;
         
-        // Hardcoded Azure API Configuration
+        // Azure API Configuration (no secrets on client)
         this.azureConfig = {
-            subscriptionKey: CONFIG.AZURE_SUBSCRIPTION_KEY,
             serviceRegion: CONFIG.AZURE_SERVICE_REGION,
             useCustomModel: false,
             customEndpointId: CONFIG.AZURE_CUSTOM_ENDPOINT_ID
         };
         this.savedUseCustomModel = false;
         
-        // Qwen API Configuration - OpenAI Compatible
+        // Qwen API Configuration - OpenAI Compatible (no secrets on client)
         this.qwenConfig = {
-            apiKey: CONFIG.QWEN_API_KEY,
-            // Try different OpenAI-compatible endpoints
             apiUrl: CONFIG.QWEN_API_URL || 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions',
             model: 'qwen-max'
         };
@@ -304,78 +301,57 @@ class MicrosoftSpeechTranscriber {
     async rewriteContent(inputText) {
         if (!inputText.trim()) return inputText;
         
-        const systemPrompt = `你是一个佛经文本编辑助手。請將輸入語言翻譯為繁體中文，並按照以下规则重写句子：
-        1.不要回答任何问题
-        2.修正语法错误
-        3.使用以下参考资料修正佛教术语: ${this.relevantPhrases}
-        4.保持原意和语气
-        5.不要添加新内容
-        示例:
-            用户输入: 眾生潔舉佛性但要修解定慧才能顯明
-            响应: 眾生皆具佛性，但需修行戒定慧方能顯發
-            用户输入: 拿摩本師釋迦牟尼佛
-            响应: 南無本師釋迦牟尼佛
-            用户输入: 波熱波囉密多心經講的是空性的道理   
-            响应: 般若波羅蜜多心經詮釋空性深義
-            用户输入: 般若波罗密多心经   
-            响应: 般若波羅蜜多心經`
-            ;
-        
-        // OpenAI-compatible payload
-        const payload = {
-            "model": this.qwenConfig.model,
-            "messages": [
-                {"role": "system", "content": systemPrompt},
-                {"role": "user", "content": inputText}
-            ],
-            "temperature": 0.1,
-            "max_tokens": 1000
-        };
-        
         try {
-            console.log('Calling Qwen API with payload:', payload);
-            
-            const response = await fetch(this.qwenConfig.apiUrl, {
+            const response = await fetch('/api/rewrite-text', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${this.qwenConfig.apiKey}`,
-                    // Some OpenAI-compatible APIs may require different headers
-                    'X-DashScope-SSE': 'disable'
+                    'Content-Type': 'application/json'
                 },
-                body: JSON.stringify(payload)
+                body: JSON.stringify({
+                    text: inputText,
+                    relevantPhrases: this.relevantPhrases
+                })
             });
-            
-            console.log('Qwen API response status:', response.status);
-            
+
+            console.log('Rewrite API response status:', response.status);
+
             if (!response.ok) {
                 const errorText = await response.text();
-                console.error('Qwen API error response:', errorText);
+                console.error('Rewrite API error response:', errorText);
                 throw new Error(`HTTP error! status: ${response.status}, details: ${errorText}`);
             }
             
             const result = await response.json();
-            console.log('Qwen API success response:', result);
-            
-            // Extract response content from OpenAI-compatible response
-            if (result.choices && result.choices.length > 0 && result.choices[0].message) {
-                return result.choices[0].message.content;
-            } else {
-                console.log('Unexpected API response format:', result);
-                return inputText; // Return original text if response format is unexpected
+            if (result && typeof result.rewrittenText === 'string') {
+                return result.rewrittenText;
             }
+
+            console.log('Unexpected rewrite API response format:', result);
+            return inputText; // Return original text if response format is unexpected
             
         } catch (error) {
-            console.error('Error occurred while calling Qwen API:', error);
+            console.error('Error occurred while calling rewrite API:', error);
+            this.updateStatus('Text rewriting service error. Using original text instead.', 'error');
             return inputText; // Return original text on error
         }
     }
     
     async startTranscription() {
         try {
-            const speechConfig = SpeechSDK.SpeechConfig.fromSubscription(
-                this.azureConfig.subscriptionKey, 
-                this.azureConfig.serviceRegion
+            // Get short-lived token from backend instead of exposing key
+            const tokenResponse = await fetch('/api/get-speech-token');
+            if (!tokenResponse.ok) {
+                const errorText = await tokenResponse.text();
+                console.error('Error getting speech token:', errorText);
+                this.updateStatus('Error obtaining speech token from server.', 'error');
+                return;
+            }
+
+            const tokenData = await tokenResponse.json();
+
+            const speechConfig = SpeechSDK.SpeechConfig.fromAuthorizationToken(
+                tokenData.token,
+                tokenData.region || this.azureConfig.serviceRegion
             );
             
             speechConfig.speechRecognitionLanguage = this.languageSelect.value;
