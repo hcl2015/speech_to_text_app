@@ -32,6 +32,21 @@ jobs:
                const coredemo = require('@actions/core')
                return await coredemo.getIDToken()
            result-encoding: string
+
+          # Generate config.js from GitHub secrets before deploy
+      - name: Generate config.js from secrets
+        working-directory: ./azure_v1.0.6
+        run: |
+          cat << 'EOF' > config.js
+          const CONFIG = {
+            AZURE_SUBSCRIPTION_KEY: "${AZURE_SUBSCRIPTION_KEY}",
+            AZURE_SERVICE_REGION: "${AZURE_SERVICE_REGION}",
+            AZURE_CUSTOM_ENDPOINT_ID: "${AZURE_CUSTOM_ENDPOINT_ID}",
+            QWEN_API_KEY: "${QWEN_API_KEY}",
+            QWEN_API_URL: "${QWEN_API_URL}"
+          };
+          EOF
+
       - name: Build And Deploy
         id: builddeploy
         uses: Azure/static-web-apps-deploy@v1
@@ -63,6 +78,7 @@ jobs:
         uses: Azure/static-web-apps-deploy@v1
         with:
           action: "close"
+
 
 
 
