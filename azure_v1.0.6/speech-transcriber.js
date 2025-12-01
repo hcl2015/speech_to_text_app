@@ -9,16 +9,18 @@ class MicrosoftSpeechTranscriber {
         this.isLoggedIn = false;
         this.currentUser = null;
         
-        // Azure API Configuration (no secrets on client)
+        // Azure API Configuration (front-end uses subscription key directly)
         this.azureConfig = {
+            subscriptionKey: CONFIG.AZURE_SUBSCRIPTION_KEY,
             serviceRegion: CONFIG.AZURE_SERVICE_REGION,
             useCustomModel: false,
             customEndpointId: CONFIG.AZURE_CUSTOM_ENDPOINT_ID
         };
         this.savedUseCustomModel = false;
         
-        // Qwen API Configuration - OpenAI Compatible (no secrets on client)
+        // Qwen API Configuration - OpenAI Compatible
         this.qwenConfig = {
+            apiKey: CONFIG.QWEN_API_KEY,
             apiUrl: CONFIG.QWEN_API_URL || 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions',
             model: 'qwen-max'
         };
@@ -77,6 +79,7 @@ class MicrosoftSpeechTranscriber {
         // Transcript storage
         this.fullTranscript = '';
         this.rewrittenTranscript = '';
+        this.lastOriginalText = '';
     }
     
     setupEventListeners() {
@@ -301,57 +304,74 @@ class MicrosoftSpeechTranscriber {
     async rewriteContent(inputText) {
         if (!inputText.trim()) return inputText;
         
+        const systemPrompt = `你是一个佛经文本编辑助手。請將輸入語言翻譯為繁體中文，並按照以下规则重写句子：
+        1.不要回答任何问题
+        2.修正语法错误
+        3.使用以下参考资料修正佛教术语: ${this.relevantPhrases}
+        4.保持原意和语气
+        5.不要添加新内容
+        示例:
+            用户输入: 眾生潔舉佛性但要修解定慧才能顯明
+            响应: 眾生皆具佛性，但需修行戒定慧方能顯發
+            用户输入: 拿摩本師釋迦牟尼佛
+            响应: 南無本師釋迦牟尼佛
+            用户输入: 波熱波囉密多心經講的是空性的道理   
+            响应: 般若波羅蜜多心經詮釋空性深義
+            用户输入: 般若波罗密多心经   
+            响应: 般若波羅蜜多心經`;
+        
+        const payload = {
+            model: this.qwenConfig.model,
+            messages: [
+                { role: 'system', content: systemPrompt },
+                { role: 'user', content: inputText }
+            ],
+            temperature: 0.1,
+            max_tokens: 1000
+        };
+        
         try {
-            const response = await fetch('/api/rewrite-text', {
+            console.log('Calling Qwen API with payload:', payload);
+            
+            const response = await fetch(this.qwenConfig.apiUrl, {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${this.qwenConfig.apiKey}`,
+                    'X-DashScope-SSE': 'disable'
                 },
-                body: JSON.stringify({
-                    text: inputText,
-                    relevantPhrases: this.relevantPhrases
-                })
+                body: JSON.stringify(payload)
             });
-
-            console.log('Rewrite API response status:', response.status);
-
+            
+            console.log('Qwen API response status:', response.status);
+            
             if (!response.ok) {
                 const errorText = await response.text();
-                console.error('Rewrite API error response:', errorText);
+                console.error('Qwen API error response:', errorText);
                 throw new Error(`HTTP error! status: ${response.status}, details: ${errorText}`);
             }
             
             const result = await response.json();
-            if (result && typeof result.rewrittenText === 'string') {
-                return result.rewrittenText;
-            }
-
-            console.log('Unexpected rewrite API response format:', result);
-            return inputText; // Return original text if response format is unexpected
+            console.log('Qwen API success response:', result);
             
+            if (result.choices && result.choices.length > 0 && result.choices[0].message) {
+                return result.choices[0].message.content;
+            } else {
+                console.log('Unexpected API response format:', result);
+                return inputText;
+            }
         } catch (error) {
-            console.error('Error occurred while calling rewrite API:', error);
+            console.error('Error occurred while calling Qwen API:', error);
             this.updateStatus('Text rewriting service error. Using original text instead.', 'error');
-            return inputText; // Return original text on error
+            return inputText;
         }
     }
     
     async startTranscription() {
         try {
-            // Get short-lived token from backend instead of exposing key
-            const tokenResponse = await fetch('/api/get-speech-token');
-            if (!tokenResponse.ok) {
-                const errorText = await tokenResponse.text();
-                console.error('Error getting speech token:', errorText);
-                this.updateStatus('Error obtaining speech token from server.', 'error');
-                return;
-            }
-
-            const tokenData = await tokenResponse.json();
-
-            const speechConfig = SpeechSDK.SpeechConfig.fromAuthorizationToken(
-                tokenData.token,
-                tokenData.region || this.azureConfig.serviceRegion
+            const speechConfig = SpeechSDK.SpeechConfig.fromSubscription(
+                this.azureConfig.subscriptionKey, 
+                this.azureConfig.serviceRegion
             );
             
             speechConfig.speechRecognitionLanguage = this.languageSelect.value;
@@ -453,12 +473,17 @@ class MicrosoftSpeechTranscriber {
         if (!text || !this.transcriptElement) return;
         
         const existingInterim = this.transcriptElement.querySelector('.interim');
-        if (existingInterim && !isRewritten) {
+        // Always clear any interim text once we append a final segment
+        if (existingInterim) {
             existingInterim.remove();
         }
         
         if (isFinal) {
             if (!isRewritten) {
+                // Avoid duplicating the same recognized text twice
+                if (text === this.lastOriginalText) {
+                    return;
+                }
                 if (this.enableRewriteCheckbox && this.enableRewriteCheckbox.checked) {
                     this.fullTranscript += text + ' ';
                     this.updateWordCount();
@@ -466,6 +491,7 @@ class MicrosoftSpeechTranscriber {
                 }
                 // Original text
                 this.fullTranscript += text + ' ';
+                this.lastOriginalText = text;
                 
                 const finalElement = document.createElement('div');
                 finalElement.textContent = `RECO: ${text}`;
