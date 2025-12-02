@@ -1,6 +1,6 @@
 {
   "navigationFallback": {
-    "rewrite": "index.html"
+    "rewrite": "/index.html"
   },
   "mimeTypes": {
     ".js": "text/javascript"
