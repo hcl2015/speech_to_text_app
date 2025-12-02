@@ -4,7 +4,14 @@
   },
   "mimeTypes": {
     ".js": "text/javascript"
-  }
+  },
+
+  "routes": [
+    {
+      "route": "/api/*",
+      "allowedRoles": ["anonymous"]
+    }
+  ]
 }
 
 
